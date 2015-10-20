@@ -1,5 +1,6 @@
 import cv2
 import math
+import imutils
 import numpy as np
 
 
@@ -11,6 +12,7 @@ class ObjTracker(object):
     scale_down = 1  # 4
     contour_color = 0, 0, 255
     contour_width = 2
+    min_area = 50
 
     DRAW_RECT = False
 
@@ -24,9 +26,9 @@ class ObjTracker(object):
 
     def _from_vebcam(self):
         """ Read img from vebcam """
-        f, orig_img = self.capture.read()
-        orig_img = cv2.flip(orig_img, 1)
-        return orig_img
+        grabbed, frame = self.capture.read()
+        frame = cv2.flip(frame, 1)
+        return frame
 
     def _hight_contrast(self, orig_img):
         """ Create contrasted img with color block """
@@ -99,7 +101,51 @@ class ObjTracker(object):
         drawed_img = self._draw_countour(orig_img, largest_contour)
         return drawed_img
 
+    def _grayscale(self, frame):
+        """ Grayscaled img """
+        # resize for optimize performance
+        frame = imutils.resize(frame, width=500)
+        # make grayscale - color is not importan
+        grays = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        grays = cv2.GaussianBlur(grays, (21, 21), 0)
+        return frame, grays
+
+    def _delta(self, first_frame, grays):
+        frame_delta = cv2.absdiff(first_frame, grays)
+        thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
+        return thresh
+
+    def _motion_countor(self, frame, thresh):
+        thresh = cv2.dilate(thresh, None, iterations=2)
+        contours, th = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for contour in contours:
+            if cv2.contourArea(contour) < self.min_area:
+                continue
+    
+            (x, y, w, h) = cv2.boundingRect(contour)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
+            # text = "Occupied"
+
+
+
+    def motion_track(self, first_frame):
+        """ Track motion block """
+        frame = self._from_vebcam()
+        frame, grays = self._grayscale(frame)
+
+        if first_frame is None:
+            return frame, grays
+
+        thresh = self._delta(first_frame, grays)
+        self._motion_countor(frame, thresh)
+
+        # drawed_img = orig_img
+        return thresh, grays
+
+
     def run(self):
+        first_frame = None
         while True:
 
             if cv2.waitKey(50) != -1:
@@ -107,7 +153,9 @@ class ObjTracker(object):
                 self.capture.release()
                 break
 
-            drawed_img = self.color_track()
+            # drawed_img = self.color_track()
+            drawed_img, first_frame = self.motion_track(first_frame)
+
             if drawed_img is not None:
                 cv2.imshow(self.window_name, drawed_img)
 
