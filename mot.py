@@ -1,3 +1,4 @@
+from datetime import datetime
 import cv2
 import math
 import time
@@ -16,7 +17,9 @@ class ObjTracker(object):
     contour_color = 0, 0, 255  # , 255, 255
     contour_width = 2
     min_area = 5 * scale
-    frame_memory = 3
+    frame_memory = 2
+
+    font_name = cv2.FONT_HERSHEY_DUPLEX
 
     timeout = 10 # ms
     ANYKEY = True
@@ -60,11 +63,13 @@ class ObjTracker(object):
         # make grayscale frame
         frame = imutils.resize(frame, width=self.scale)
         grays = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blure = cv2.GaussianBlur(grays, (1, 1), 0)
+        blure = cv2.GaussianBlur(grays, (11, 11), 0)
         if prev_frame is None:
             return frame, [blure, ] * self.frame_memory
 
+        prev_frame = prev_frame[:self.frame_memory]
         frame_delta = cv2.absdiff(prev_frame[-1], grays)
+
         thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)[1]
         dil = cv2.dilate(thresh, np.ones((7, 7), np.uint8))
 
@@ -75,33 +80,48 @@ class ObjTracker(object):
                 continue
             (x, y, w, h) = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
+            sub_img = frame[y:y + h, x:x + w]
+            # return sub_img, blure
 
         return frame, blure
 
-    def fps(self, frames, fps, start_time):
-        if frames % 10 == 0:
-            currtime = time.time()
-            numsecs = currtime - start_time
-            fps = frames / numsecs
-            start_time = currtime
-            frames = 0
-        return frames, fps, start_time
+    def fps(self, fps):
+        # 0 - frame numbers
+        # 1 - fps value
+        # 2 - current time
+        if not (fps[0] % 10):
+            fps_val = fps[0] / (time.time() - fps[2])
 
+            fps[0] = 0
+            fps[1] = fps_val
+            fps[2] = time.time()
+
+    def add_text(self, frame, fps):
+        """ insert text to frame """
+        offset_x, offset_y = 10, 30
+
+        cv2.putText(
+            frame, 'fps: %.2f' % fps[1], (offset_x, offset_y), self.font_name, 1, self.contour_color)
+        cv2.putText(
+            frame, 'time: %s' % datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            (offset_x, len(frame) - offset_y), self.font_name, 1, self.contour_color)
 
     def run(self):
         frame, prev_frame = self.moution_detect(None)
         # pre fps
-        frames = fps = 0
-        start_time = time.time()
+        fps = [0, 24, time.time()]
         while True:
-            frames += 1
+            fps[0] += 1
+            self.fps(fps)
             self.wait_key()
-            frames, fps, start_time = self.fps(frames, fps, start_time)
+
             frame, tmp_frame = self.moution_detect(prev_frame)
+            self.add_text(frame, fps)
+
+            # old frames list
             prev_frame.insert(0, tmp_frame)
-            prev_frame = prev_frame[:self.frame_memory]
+
             self.show_frame(frame)
-            print fps
 
     def do(self):
         try:
