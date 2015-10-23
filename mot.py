@@ -4,6 +4,7 @@ import math
 import time
 import imutils
 import numpy as np
+from matplotlib import pyplot as plt
 
 from obj_tracker.exceptions import TrackerExit
 
@@ -80,7 +81,11 @@ class ObjTracker(object):
                 continue
             (x, y, w, h) = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
+
             sub_img = frame[y:y + h, x:x + w]
+            hist = cv2.calcHist([sub_img], [0], None, [256], [0, 256])
+            plt.hist(sub_img.ravel(), 256, [0, 256])
+            plt.show()
             # return sub_img, blure
 
         return frame, blure
