@@ -83,12 +83,17 @@ class ObjTracker(object):
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
 
             sub_img = frame[y:y + h, x:x + w]
-            hist = cv2.calcHist([sub_img], [0], None, [256], [0, 256])
-            plt.hist(sub_img.ravel(), 256, [0, 256])
-            plt.show()
+            # self.draw_hist(sub_img)
             # return sub_img, blure
 
         return frame, blure
+
+    def draw_hist(self, img):
+        for index, color in enumerate(('b', 'g', 'r')):
+            histr = cv2.calcHist([img], [index], None, [256], [0, 256])
+            plt.plot(histr, color=color)
+            plt.xlim([0, 256])
+        plt.show()
 
     def fps(self, fps):
         # 0 - frame numbers
