@@ -21,6 +21,7 @@ class ObjTracker(object):
     frame_memory = 2
 
     font_name = cv2.FONT_HERSHEY_DUPLEX
+    compare_method = cv2.cv.CV_COMP_CORREL
 
     timeout = 10 # ms
     ANYKEY = True
@@ -83,6 +84,11 @@ class ObjTracker(object):
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
 
             sub_img = frame[y:y + h, x:x + w]
+            x = self.hist_compare(sub_img, prev_frame[-1][y:y + h, x:x + w])
+            if x < .7:
+                print '************'
+            else:
+                print '++++++++++++'
             # self.draw_hist(sub_img)
             # return sub_img, blure
 
@@ -95,6 +101,10 @@ class ObjTracker(object):
             plt.xlim([0, 256])
         plt.show()
 
+    def plot_hist(self, histr):
+        plt.plot(histr)
+        plt.show()
+
     def fps(self, fps):
         # 0 - frame numbers
         # 1 - fps value
@@ -105,6 +115,22 @@ class ObjTracker(object):
             fps[0] = 0
             fps[1] = fps_val
             fps[2] = time.time()
+
+    def hist_compare(self, img_a, img_b):
+        """ Compare histograms """
+
+        channels = [0]
+        hista = cv2.calcHist([img_a], channels, None, [256], [0, 256])
+        histb = cv2.calcHist([img_b], channels, None, [256], [0, 256])
+
+        # self.plot_hist(hista)
+        # self.plot_hist(histb)
+
+        # hista = cv2.cv.NormalizeHist(hista, 100.)
+        # histb = cv2.cv.NormalizeHist(histb, 100.)
+
+
+        return cv2.compareHist(hista, histb, self.compare_method)
 
     def add_text(self, frame, fps):
         """ insert text to frame """
