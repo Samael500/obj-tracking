@@ -85,10 +85,6 @@ class ObjTracker(object):
 
             sub_img = frame[y:y + h, x:x + w]
             x = self.hist_compare(sub_img, prev_frame[-1][y:y + h, x:x + w])
-            if x < .7:
-                print '************'
-            else:
-                print '++++++++++++'
             # self.draw_hist(sub_img)
             # return sub_img, blure
 
