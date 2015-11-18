@@ -127,8 +127,6 @@ class ObjTracker(object):
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
             # text = "Occupied"
 
-
-
     def motion_track(self, first_frame):
         """ Track motion block """
         frame = self._from_vebcam()
@@ -142,7 +140,6 @@ class ObjTracker(object):
 
         # drawed_img = orig_img
         return thresh, grays
-
 
     def run(self):
         first_frame = None
