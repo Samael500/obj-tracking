@@ -119,13 +119,6 @@ class ObjTracker(object):
         hista = cv2.calcHist([img_a], channels, None, [256], [0, 256])
         histb = cv2.calcHist([img_b], channels, None, [256], [0, 256])
 
-        # self.plot_hist(hista)
-        # self.plot_hist(histb)
-
-        # hista = cv2.cv.NormalizeHist(hista, 100.)
-        # histb = cv2.cv.NormalizeHist(histb, 100.)
-
-
         return cv2.compareHist(hista, histb, self.compare_method)
 
     def add_text(self, frame, fps):
