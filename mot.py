@@ -23,7 +23,7 @@ class ObjTracker(object):
     font_name = cv2.FONT_HERSHEY_DUPLEX
     compare_method = cv2.cv.CV_COMP_CORREL
 
-    timeout = 10 # ms
+    timeout = 10  # ms
     ANYKEY = True
 
     DRAW_RECT = False

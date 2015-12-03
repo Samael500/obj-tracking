@@ -122,7 +122,7 @@ class ObjTracker(object):
         for contour in contours:
             if cv2.contourArea(contour) < self.min_area:
                 continue
-    
+
             (x, y, w, h) = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
             # text = "Occupied"
