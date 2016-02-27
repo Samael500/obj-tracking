@@ -13,8 +13,10 @@ class ObjTracker(object):
 
     """ Simple object tracker class """
 
+    VEBCAM = False
+
     window_name = 'Object-Tracker'
-    scale = 1000  # 4
+    scale = 1000 # 4
     contour_color = 0, 0, 255  # , 255, 255
     contour_width = 2
     min_area = 5 * scale
@@ -30,20 +32,21 @@ class ObjTracker(object):
 
     def __init__(self):
         cv2.namedWindow(self.window_name, cv2.CV_WINDOW_AUTOSIZE)
-        self._init_vebcam()
+        self._init_capture('data/v1.avi')
 
-    def _init_vebcam(self):
-        """ Initialize vebcam stream """
-        self.capture = cv2.VideoCapture(0)
+    def _init_capture(self, path=0):
+        """ Initialize vebcam or fileobj video stream """
+        self.capture = cv2.VideoCapture(path)
 
-    def _from_vebcam(self):
-        """ Read img from vebcam """
+    def _read_frame(self):
+        """ Read img from capture """
         grabbed, frame = self.capture.read()
-        frame = cv2.flip(frame, 1)
+        if self.VEBCAM:
+            frame = cv2.flip(frame, 1)
         return frame
 
     def read_frame(self):
-        return self._from_vebcam()
+        return self._read_frame()
 
     def show_frame(self, frame):
         if frame is not None:
@@ -134,14 +137,14 @@ class ObjTracker(object):
     def run(self):
         frame, prev_frame = self.moution_detect(None)
         # pre fps
-        fps = [0, 24, time.time()]
+        # fps = [0, 24, time.time()]
         while True:
-            fps[0] += 1
-            self.fps(fps)
+            # fps[0] += 1
+            # self.fps(fps)
             self.wait_key()
 
             frame, tmp_frame = self.moution_detect(prev_frame)
-            self.add_text(frame, fps)
+            # self.add_text(frame, fps)
 
             # old frames list
             prev_frame.insert(0, tmp_frame)
