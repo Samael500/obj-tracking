@@ -20,7 +20,7 @@ class ObjTracker(object):
     VEBCAM = False
 
     window_name = 'Object-Tracker'
-    scale = 600 # 4
+    scale = 600  # 4
     contour_color = 0, 0, 255  # , 255, 255
     contour_width = 2
     min_area = 5 * scale
@@ -34,11 +34,11 @@ class ObjTracker(object):
 
     DRAW_RECT = False
 
-    skipframe = 64
+    skipframe = 24
 
     def __init__(self):
         cv2.namedWindow(self.window_name, cv2.CV_WINDOW_AUTOSIZE)
-        self._init_capture('data/cam-01.mp4')
+        self._init_capture('data/cam-01.avi')  # mp4')
         # initialize the HOG descriptor/person detector
         self.hog = cv2.HOGDescriptor()
         self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
@@ -51,6 +51,8 @@ class ObjTracker(object):
         """ Read img from capture """
         for i in range(self.skipframe):
             grabbed, frame = self.capture.read()
+            if not grabbed:
+                raise TrackerExit()
         if self.VEBCAM:
             frame = cv2.flip(frame, 1)
 
@@ -67,27 +69,27 @@ class ObjTracker(object):
     def moution_detect(self, frame, prev_frame):
         """ Detect moution on stream """
         # make grayscale frame
-        grays = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blure = cv2.GaussianBlur(grays, (11, 11), 0)
-
-        frame_delta = cv2.absdiff(blure, grays)
-
+        grays = [cv2.cvtColor(frm, cv2.COLOR_BGR2GRAY) for frm in (frame, prev_frame)]
+        # blurr for symplify image
+        blure = [cv2.GaussianBlur(frm, (23, 23), 0) for frm in grays]
+        # calculate coutours
+        frame_delta = cv2.absdiff(*blure)
+        # hight contrast
         thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)[1]
-        dil = cv2.dilate(thresh, np.ones((7, 7), np.uint8))
-
-        contours, hierarchy = cv2.findContours(dil.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        dil = cv2.dilate(thresh, np.ones((21, 21), np.uint8))
+        # find countours
+        contours, hierarchy = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
             if cv2.contourArea(contour) < self.min_area:
                 continue
             (x, y, w, h) = cv2.boundingRect(contour)
-            sub_img = frame[y:y + h, x:x + w]
-            img = self.people_find(sub_img)
+            # cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
 
-            frame[y:y + h, x:x + w] = img
+            blank_image = np.zeros((h, w, 3), np.uint8)
+            frame[y: y + h, x: x + w] = self.people_find(frame[y: y + h, x: x + w])
 
-
-        return frame, blure
+        return frame
 
     def wait_key(self):
         """ exit btns """
@@ -95,25 +97,25 @@ class ObjTracker(object):
         key = cv2.waitKey(self.timeout)
         # if q was pressed exit
         if key & 255 == ord('q') or (self.ANYKEY and (key != -1)):
-            cv2.destroyWindow(self.window_name)
-            self.capture.release()
             raise TrackerExit()
 
     def people_find(self, image):
         rects, weights = self.hog.detectMultiScale(
             image, winStride=(4, 4), padding=(4, 4), scale=1.05
         )
- 
+
+        return image
+
         # draw the original bounding boxes
         # for (x, y, w, h) in rects:
         #     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
- 
+
         # apply non-maxima suppression to the bounding boxes using a
         # fairly large overlap threshold to try to maintain overlapping
         # boxes that are still people
         rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
         pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
- 
+
         # draw the final bounding boxes
         for (xA, yA, xB, yB) in pick:
             cv2.rectangle(image, (xA, yA), (xB, yB), (0, 255, 0), 2)
@@ -124,16 +126,19 @@ class ObjTracker(object):
         prev_frame = self.read_frame()
         while True:
             frame = self.read_frame()
-            self.wait_key()
-            oframe = self.moution_detect(frame, prev_frame)
+            oframe = self.moution_detect(frame.copy(), prev_frame.copy())
             self.show_frame(oframe)
             prev_frame = frame
+            self.wait_key()
 
     def do(self):
         try:
             self.run()
         except TrackerExit:
             pass
+        finally:
+            cv2.destroyWindow(self.window_name)
+            self.capture.release()
 
 
 if __name__ == "__main__":
