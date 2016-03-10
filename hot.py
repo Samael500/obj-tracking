@@ -10,6 +10,7 @@ from obj_tracker.exceptions import TrackerExit
 
 no_euqlid = True
 
+
 def euqlid(A, B):
     return math.sqrt((A[0] - B[0]) ** 2 + (A[1] - B[1]) ** 2)
 
@@ -32,19 +33,22 @@ class ObjTracker(object):
     min_tresh = .85
     max_dist = 60
     center = 1165, 590
+    track_window = 1165, 590, 400, 800
 
     font_name = cv2.FONT_HERSHEY_DUPLEX
-    compare_method = cv2.cv.CV_COMP_CORREL
+    # compare_method = cv2.CV_COMP_CORREL
+
+    term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 10)
 
     timeout = 10  # ms
     ANYKEY = True
 
     DRAW_RECT = False
 
-    skipframe = 3
+    skipframe = 1
 
     def __init__(self):
-        cv2.namedWindow(self.window_name, cv2.CV_WINDOW_AUTOSIZE)
+        cv2.namedWindow(self.window_name)#, cv2.CV_WINDOW_AUTOSIZE)
         self._init_capture('data/cam-01.avi')  # mp4')
         self.target = cv2.imread('data/target.png')
 
@@ -73,6 +77,23 @@ class ObjTracker(object):
 
     def moution_detect(self, frame, prev_frame):
         """ Detect moution on stream """
+
+        # set up the ROI for tracking
+        hsv_roi =  cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_roi, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
+        roi_hist = cv2.calcHist([hsv_roi],[0],mask,[180],[0,180])
+        cv2.normalize(roi_hist,roi_hist,0,255,cv2.NORM_MINMAX)
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        dst = cv2.calcBackProject([hsv],[0],roi_hist,[0,180],1)
+
+        ret, self.track_window = cv2.meanShift(dst, self.track_window, self.term_crit)
+        x, y, w, h = self.track_window
+        img2 = cv2.rectangle(frame, (x,y), (x+w,y+h), 255, 2)
+        return img2
+
+        return frame
+
         # make grayscale frame
         grays = [cv2.cvtColor(frm, cv2.COLOR_BGR2GRAY) for frm in (frame, prev_frame)]
         # blurr for symplify image
