@@ -5,18 +5,26 @@ import numpy as np
 
 from copy import copy
 from imutils import paths
-from skimage.measure import structural_similarity as ssim
+# from skimage.measure import structural_similarity as ssim
 
 from obj_tracker.exceptions import TrackerExit
 
+from x import xall
+
 no_euqlid = True
 
+for i in range(471, 1898):
+    if i in xall:
+        last = xall[i]
+    else:
+        xall[i] = last
 
 def euqlid(A, B):
     if B is None:
         return 0
     return math.sqrt((A[0] - B[0]) ** 2 + (A[1] - B[1]) ** 2)
 
+frame_N = 0
 
 class ObjTracker(object):
 
@@ -48,7 +56,7 @@ class ObjTracker(object):
 
     DRAW_RECT = False
 
-    skipframe = 3
+    skipframe = 7#3
 
     def __init__(self):
         cv2.namedWindow(self.window_name)#, cv2.CV_WINDOW_AUTOSIZE)
@@ -62,7 +70,9 @@ class ObjTracker(object):
 
     def _read_frame(self):
         """ Read img from capture """
+        global frame_N
         for i in range(self.skipframe):
+            frame_N += 1
             grabbed, frame = self.capture.read()
             if not grabbed:
                 raise TrackerExit()
@@ -91,7 +101,7 @@ class ObjTracker(object):
         thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)[1]
         dil = cv2.dilate(thresh, np.ones((21, 21), np.uint8))
         # find countours
-        image, contours, hierarchy = cv2.findContours(dil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        contours, hierarchy = cv2.findContours(dil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         clean = frame.copy()
 
@@ -132,6 +142,10 @@ class ObjTracker(object):
 
     def compare(self, image, center):
         # image histogram
+        crd = xall.get(frame_N)
+        if crd:
+            return (center[0] < crd[0] < center[0] + center[2]) and (center[1] < crd[1] < center[1] + center[3])
+        return False
         hista = cv2.calcHist([image], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
         cv2.normalize(hista, hista).flatten()
         # target histogram
