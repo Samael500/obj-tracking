@@ -1,16 +1,17 @@
-from datetime import datetime
-import cv2
 import math
-import time
+import cv2
 import imutils
-from matplotlib import pyplot as plt
+import numpy as np
+
+from imutils import paths
+from skimage.measure import structural_similarity as ssim
 
 from obj_tracker.exceptions import TrackerExit
 
-from imutils.object_detection import non_max_suppression
-from imutils import paths
-import numpy as np
-import cv2
+no_euqlid = True
+
+def euqlid(A, B):
+    return math.sqrt((A[0] - B[0]) ** 2 + (A[1] - B[1]) ** 2)
 
 
 class ObjTracker(object):
@@ -20,11 +21,17 @@ class ObjTracker(object):
     VEBCAM = False
 
     window_name = 'Object-Tracker'
-    scale = 600  # 4
-    contour_color = 0, 0, 255  # , 255, 255
+    scale = 1200  # 4
+    contour_color = 0, 0, 255
+    target_color = 0, 255, 0
     contour_width = 2
-    min_area = 5 * scale
+    min_area = 2 * scale
     frame_memory = 2
+
+    # detect
+    min_tresh = .85
+    max_dist = 60
+    center = 1165, 590
 
     font_name = cv2.FONT_HERSHEY_DUPLEX
     compare_method = cv2.cv.CV_COMP_CORREL
@@ -34,14 +41,12 @@ class ObjTracker(object):
 
     DRAW_RECT = False
 
-    skipframe = 24
+    skipframe = 3
 
     def __init__(self):
         cv2.namedWindow(self.window_name, cv2.CV_WINDOW_AUTOSIZE)
         self._init_capture('data/cam-01.avi')  # mp4')
-        # initialize the HOG descriptor/person detector
-        self.hog = cv2.HOGDescriptor()
-        self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        self.target = cv2.imread('data/target.png')
 
     def _init_capture(self, path=0):
         """ Initialize vebcam or fileobj video stream """
@@ -78,18 +83,38 @@ class ObjTracker(object):
         thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)[1]
         dil = cv2.dilate(thresh, np.ones((21, 21), np.uint8))
         # find countours
-        contours, hierarchy = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(dil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         for contour in contours:
+            (x, y, w, h) = cv2.boundingRect(contour)
             if cv2.contourArea(contour) < self.min_area:
                 continue
-            (x, y, w, h) = cv2.boundingRect(contour)
-            # cv2.rectangle(frame, (x, y), (x + w, y + h), self.contour_color, self.contour_width)
+            # image cmp
+            cv2.rectangle(
+                frame, (x, y), (x + w, y + h),
+                self.target_color if self.compare(
+                    frame[y: y + h, x: x + w], (x, y)) else self.contour_color,
+                self.contour_width)
 
-            blank_image = np.zeros((h, w, 3), np.uint8)
-            frame[y: y + h, x: x + w] = self.people_find(frame[y: y + h, x: x + w])
+        #     # blank_image = np.zeros((h, w, 3), np.uint8)
+        #     # frame[y: y + h, x: x + w] = self.people_find(frame[y: y + h, x: x + w])
 
         return frame
+
+    def compare(self, image, center):
+        # image histogram
+        hista = cv2.calcHist([image], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+        hista = cv2.normalize(hista).flatten()
+        # target histogram
+        histt = cv2.calcHist([self.target], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+        histt = cv2.normalize(histt).flatten()
+        # compare result
+        compare = cv2.compareHist(histt, hista, cv2.cv.CV_COMP_CORREL)
+        if compare > self.min_tresh and euqlid(center, self.center) < self.max_dist:
+            self.target = image
+            self.center = center
+            return True
+        return False
 
     def wait_key(self):
         """ exit btns """
@@ -98,29 +123,6 @@ class ObjTracker(object):
         # if q was pressed exit
         if key & 255 == ord('q') or (self.ANYKEY and (key != -1)):
             raise TrackerExit()
-
-    def people_find(self, image):
-        rects, weights = self.hog.detectMultiScale(
-            image, winStride=(4, 4), padding=(4, 4), scale=1.05
-        )
-
-        return image
-
-        # draw the original bounding boxes
-        # for (x, y, w, h) in rects:
-        #     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-
-        # apply non-maxima suppression to the bounding boxes using a
-        # fairly large overlap threshold to try to maintain overlapping
-        # boxes that are still people
-        rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
-        pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
-
-        # draw the final bounding boxes
-        for (xA, yA, xB, yB) in pick:
-            cv2.rectangle(image, (xA, yA), (xB, yB), (0, 255, 0), 2)
-
-        return image
 
     def run(self):
         prev_frame = self.read_frame()
