@@ -48,12 +48,13 @@ class ObjTracker(object):
 
     DRAW_RECT = False
 
-    skipframe = 8
+    skipframe = 3
 
     def __init__(self):
         cv2.namedWindow(self.window_name)#, cv2.CV_WINDOW_AUTOSIZE)
         self._init_capture('data/cam-01.avi')  # mp4')
         self.target = cv2.imread('data/target.png')
+        self.target2 = cv2.imread('data/target2.png')
 
     def _init_capture(self, path=0):
         """ Initialize vebcam or fileobj video stream """
@@ -94,6 +95,17 @@ class ObjTracker(object):
 
         clean = frame.copy()
 
+        for contour in contours:
+            (x, y, w, h) = cv2.boundingRect(contour)
+            if cv2.contourArea(contour) < self.min_area:
+                continue
+            # image cmp
+            cv2.rectangle(
+                frame, (x, y), (x + w, y + h),
+                self.target_color if self.compare(
+                    clean[y: y + h, x: x + w], (x, y, w, h)) else self.contour_color,
+                self.contour_width)
+
         if self.center:
             (x, y, w, h) = self.center
 
@@ -107,25 +119,14 @@ class ObjTracker(object):
             dst = cv2.calcBackProject([hsv],[0], roi_hist,[0,180],1)
 
             term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 1, 1 )
-            ret, self.center = cv2.meanShift(grays[1], self.center, term_crit)
-            x,y,w,h = self.center
-            frame = cv2.rectangle(frame, (x,y), (x+w,y+h), 255,2)
+            ret, center = cv2.CamShift(grays[1], self.center, term_crit)
+            x,y,w,h = center
+            cv2.rectangle(frame, (x,y), (x+w,y+h), 255,2)
+
+            # self.target = clean[y: y + h, x: x + w]
 
         #     # blank_image = np.zeros((h, w, 3), np.uint8)
         #     # frame[y: y + h, x: x + w] = self.people_find(frame[y: y + h, x: x + w])
-
-
-        for contour in contours:
-            (x, y, w, h) = cv2.boundingRect(contour)
-            if cv2.contourArea(contour) < self.min_area:
-                continue
-            # image cmp
-            cv2.rectangle(
-                frame, (x, y), (x + w, y + h),
-                self.target_color if self.compare(
-                    clean[y: y + h, x: x + w], (x, y, w, h)) else self.contour_color,
-                self.contour_width)
-
 
         return frame
 
