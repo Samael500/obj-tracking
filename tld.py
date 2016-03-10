@@ -1,20 +1,23 @@
 from SimpleCV import Image, Camera, Display, VirtualCamera
 from pyOpenTLD import *
 
+import sys
+W = int(sys.argv[1])
+H = int(sys.argv[2])
+
 class PyOpenTLD:
     tld = TLD()
     display = Display()
-    cam = VirtualCamera("data/cam-01.avi", "video")
-    # cam=Camera()
+    cam=Camera()
     threshold = 0
-    initialBB = [10, 11, 25, 45 ]
+    initialBB = []
     
     def __init__(self):
         self.threshold = 0.5
-        self.initialBB = [10, 11, 25, 45 ]
+        self.initialBB = []
         
     def start_tld(self, bb=None):
-        img = self.cam.getImage()#.scale(W,H)
+        img = self.cam.getImage().scale(W,H)
         grey = img.toGray().getBitmap()
         
         self.tld.detectorCascade.imgWidth = grey.width
@@ -32,7 +35,7 @@ class PyOpenTLD:
         self.process_open()
         
     def process_open(self):
-        img = self.cam.getImage()#.scale(W,H)
+        img = self.cam.getImage().scale(W,H)
         self.tld.processImage(img)
         if self.tld.currBB:
             print self.tld.currBB
@@ -47,7 +50,7 @@ def getBBFromUser(cam, d):
     img = cam.getImage()
     while d.isNotDone():
         try:
-            img = cam.getImage()#.scale(W,H)
+            img = cam.getImage().scale(W,H)
             a=img.save(d)
             dwn = d.leftButtonDownPosition()
             up = d.leftButtonUpPosition()
@@ -71,5 +74,4 @@ def getBBFromUser(cam, d):
     return rect
 
 p=PyOpenTLD()
-while True:
-    p.start_tld([10, 11, 25, 45 ])
+p.start_tld()
