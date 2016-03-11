@@ -30,4 +30,4 @@
 
 ##Результат
 
-<iframe width="420" height="315" src="https://www.youtube.com/embed/6gwxjfIyjEE" frameborder="0" allowfullscreen></iframe>
+[![youtube video](http://img.youtube.com/vi/6gwxjfIyjEE/0.jpg)](http://www.youtube.com/watch?v=6gwxjfIyjEE)
