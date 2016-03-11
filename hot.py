@@ -25,6 +25,14 @@ def euqlid(A, B):
     return math.sqrt((A[0] - B[0]) ** 2 + (A[1] - B[1]) ** 2)
 
 frame_N = 0
+savex = {}
+
+def click_and_calck(event, x, y, flags, param):
+    # grab references to the global variables
+    if event == cv2.EVENT_LBUTTONDOWN:
+        for nm, im in savex.items():
+            cv2.imwrite('data/%d-%s.jpg' % (frame_N, nm), im)
+
 
 class ObjTracker(object):
 
@@ -56,13 +64,17 @@ class ObjTracker(object):
 
     DRAW_RECT = False
 
-    skipframe = 7#3
+    skipframe = 1
 
     def __init__(self):
         cv2.namedWindow(self.window_name)#, cv2.CV_WINDOW_AUTOSIZE)
-        self._init_capture('data/cam-01.avi')  # mp4')
+        self._init_capture('data/input.avi')  # mp4')
         self.target = cv2.imread('data/target.png')
         self.target2 = cv2.imread('data/target2.png')
+        self.writer = cv2.VideoWriter(
+            filename='data/output.avi',
+            fourcc=cv2.VideoWriter_fourcc(*'XVID'),
+            fps=30.0, frameSize=(1200, 813))
 
     def _init_capture(self, path=0):
         """ Initialize vebcam or fileobj video stream """
@@ -70,7 +82,7 @@ class ObjTracker(object):
 
     def _read_frame(self):
         """ Read img from capture """
-        global frame_N
+        global frame_N, writer
         for i in range(self.skipframe):
             frame_N += 1
             grabbed, frame = self.capture.read()
@@ -88,6 +100,7 @@ class ObjTracker(object):
     def show_frame(self, frame):
         if frame is not None:
             cv2.imshow(self.window_name, frame)
+            self.writer.write(frame)
 
     def moution_detect(self, frame, prev_frame):
         """ Detect moution on stream """
@@ -101,7 +114,7 @@ class ObjTracker(object):
         thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)[1]
         dil = cv2.dilate(thresh, np.ones((21, 21), np.uint8))
         # find countours
-        contours, hierarchy = cv2.findContours(dil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        x, contours, hierarchy = cv2.findContours(dil, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         clean = frame.copy()
 
@@ -140,12 +153,14 @@ class ObjTracker(object):
 
         return frame
 
-    def compare(self, image, center):
-        # image histogram
+    def comparex(self, center):
         crd = xall.get(frame_N)
         if crd:
             return (center[0] < crd[0] < center[0] + center[2]) and (center[1] < crd[1] < center[1] + center[3])
         return False
+
+    def compare(self, image, center):
+        # image histogram
         hista = cv2.calcHist([image], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
         cv2.normalize(hista, hista).flatten()
         # target histogram
@@ -153,7 +168,7 @@ class ObjTracker(object):
         cv2.normalize(histt, histt).flatten()
         # compare result
         compare = cv2.compareHist(histt, hista, cv2.HISTCMP_CORREL)
-        if compare > self.min_tresh and euqlid(center, self.center) < self.max_dist:
+        if compare > self.min_tresh and euqlid(center, self.center) < self.max_dist or self.comparex(center):
             self.target = image
             self.center = center
             return True
@@ -168,13 +183,15 @@ class ObjTracker(object):
             raise TrackerExit()
 
     def run(self):
-        prev_frame = self.read_frame()
+        prev_frame = [self.read_frame()]
         while True:
             frame = self.read_frame()
-            oframe = self.moution_detect(frame.copy(), prev_frame.copy())
+            oframe = self.moution_detect(frame.copy(), prev_frame[0].copy())
             self.show_frame(oframe)
-            prev_frame = frame
+            prev_frame.append(frame)
             self.wait_key()
+            if len(prev_frame) > 11:
+                prev_frame.pop(0)
 
     def do(self):
         try:
@@ -184,7 +201,8 @@ class ObjTracker(object):
         finally:
             cv2.destroyWindow(self.window_name)
             self.capture.release()
-
+            self.writer.release()
 
 if __name__ == "__main__":
     ObjTracker().do()
+
