@@ -31,7 +31,7 @@ def click_and_calck(event, x, y, flags, param):
     # grab references to the global variables
     if event == cv2.EVENT_LBUTTONDOWN:
         for nm, im in savex.items():
-            cv2.imwrite('data/%d-%s.jpg' % (frame_N, nm), im)
+            cv2.imwrite('data/frames/%d-%s.jpg' % (frame_N, nm), im)
 
 
 class ObjTracker(object):
@@ -71,10 +71,11 @@ class ObjTracker(object):
         self._init_capture('data/input.avi')  # mp4')
         self.target = cv2.imread('data/target.png')
         self.target2 = cv2.imread('data/target2.png')
-        self.writer = cv2.VideoWriter(
-            filename='data/output.avi',
-            fourcc=cv2.VideoWriter_fourcc(*'XVID'),
-            fps=30.0, frameSize=(1200, 843))
+        # self.writer = cv2.VideoWriter(
+        #     filename='data/output.avi',
+        #     fourcc=cv2.VideoWriter_fourcc(*'XVID'),
+        #     fps=30.0, frameSize=(1200, 843))
+        # cv2.setMouseCallback(self.window_name, click_and_calck)
 
     def _init_capture(self, path=0):
         """ Initialize vebcam or fileobj video stream """
@@ -100,7 +101,7 @@ class ObjTracker(object):
     def show_frame(self, frame):
         if frame is not None:
             cv2.imshow(self.window_name, frame)
-            self.writer.write(frame)
+            # self.writer.write(frame)
 
     def moution_detect(self, frame, prev_frame):
         """ Detect moution on stream """
@@ -118,6 +119,12 @@ class ObjTracker(object):
 
         clean = frame.copy()
 
+        savex['1-gray'] = grays[0]
+        savex['2-blure'] = blure[0]
+        savex['3-delta'] = frame_delta
+        savex['4-thresh'] = thresh
+        savex['5-dil'] = dil.copy()
+
         for contour in contours:
             (x, y, w, h) = cv2.boundingRect(contour)
             if cv2.contourArea(contour) < self.min_area:
@@ -128,6 +135,9 @@ class ObjTracker(object):
                 self.target_color if self.compare(
                     clean[y: y + h, x: x + w], (x, y, w, h)) else self.contour_color,
                 self.contour_width)
+            cv2.rectangle(dil, (x, y), (x + w, y + h), (255, 255, 255), self.contour_width)
+
+        savex['6-countours'] = dil
 
         if self.center:
             (x, y, w, h) = self.center
@@ -201,8 +211,7 @@ class ObjTracker(object):
         finally:
             cv2.destroyWindow(self.window_name)
             self.capture.release()
-            self.writer.release()
+            # self.writer.release()
 
 if __name__ == "__main__":
     ObjTracker().do()
-
