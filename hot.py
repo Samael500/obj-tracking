@@ -74,7 +74,7 @@ class ObjTracker(object):
         self.writer = cv2.VideoWriter(
             filename='data/output.avi',
             fourcc=cv2.VideoWriter_fourcc(*'XVID'),
-            fps=30.0, frameSize=(1200, 813))
+            fps=30.0, frameSize=(1200, 843))
 
     def _init_capture(self, path=0):
         """ Initialize vebcam or fileobj video stream """
